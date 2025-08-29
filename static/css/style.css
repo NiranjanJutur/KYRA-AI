@@ -1,0 +1,114 @@
+/* Custom styles beyond Bootstrap */
+:root {
+    --primary-gradient: linear-gradient(135deg, #4a90e2 0%, #5c6ac4 100%);
+}
+
+.upload-zone {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-zone.drag-over {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.summary-container {
+    position: relative;
+}
+
+.summary-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary-gradient);
+    border-radius: 4px 0 0 4px;
+}
+
+.card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: 0.5s;
+}
+
+.btn-primary:hover::after {
+    left: 100%;
+}
+
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+}
+
+.alert {
+    border-left: 4px solid;
+}
+
+.alert-success {
+    border-left-color: #28a745;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+}
+
+.alert-danger {
+    border-left-color: #dc3545;
+}
+
+.text-muted {
+    color: #BBBBBB !important; /* Lighter grey for better visibility */
+}
+
+.text-truncate {
+    color: #DDDDDD !important; /* Slightly lighter for general truncated text */
+}
+
+/* Animation for loading state */
+.loading-spinner {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.processing .loading-spinner {
+    display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .summary-container {
+        margin: 1rem 0;
+    }
+}
