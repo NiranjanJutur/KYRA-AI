@@ -1,0 +1,37 @@
+# Django Settings
+DEBUG=True
+SECRET_KEY=django-insecure-your-secret-key-here
+ALLOWED_HOSTS=127.0.0.1,localhost,0.0.0.0
+
+# Database
+DATABASE_URL=sqlite:///db.sqlite3
+
+# Static and Media Files
+STATIC_URL=/static/
+MEDIA_URL=/media/
+
+# Celery Configuration
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Google AI Services
+GOOGLE_API_KEY=your_gemini_api_key_here
+GOOGLE_APPLICATION_CREDENTIALS=path/to/your/google-credentials.json
+
+# OCR Configuration
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+
+# Security Settings (for production, set these to True)
+SECURE_SSL_REDIRECT=False
+SECURE_PROXY_SSL_HEADER=None
+SESSION_COOKIE_SECURE=False
+CSRF_COOKIE_SECURE=False
+SECURE_HSTS_SECONDS=0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=False
+SECURE_HSTS_PRELOAD=False
+
+# Timezone
+TIME_ZONE=Asia/Kolkata
+
+# Logging
+LOG_LEVEL=INFO

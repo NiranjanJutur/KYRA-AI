@@ -1,6 +1,3 @@
-# KYRA-AI
-
-
 # 📚 PDF Summarizer - AI-Powered Document Analysis Platform
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
