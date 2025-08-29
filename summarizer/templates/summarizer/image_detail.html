@@ -1,0 +1,527 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ image.title }} - Advanced Image Analysis{% endblock %}
+
+{% block extra_head %}
+<style>
+    .analysis-card {
+        border-left: 4px solid #007bff;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    .confidence-bar {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+    }
+    .speech-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .speech-controls button {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .speech-controls button:hover {
+        transform: scale(1.1);
+    }
+    .speech-controls .play-btn { color: #28a745; }
+    .speech-controls .pause-btn { color: #ffc107; }
+    .speech-controls .stop-btn { color: #dc3545; }
+    .analysis-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .image-preview {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+    .image-preview img {
+        transition: transform 0.3s ease;
+    }
+    .image-preview:hover img {
+        transform: scale(1.05);
+    }
+    .zoom-overlay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .image-preview:hover .zoom-overlay {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Add CSRF token for AJAX requests -->
+{% csrf_token %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Image Preview Column -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-image me-2"></i>Image Preview
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <a href="{{ image.image.url }}" class="btn btn-sm btn-outline-light" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i> Full Size
+                        </a>
+                        <a href="{% url 'download_image' image.pk %}" class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-download me-1"></i> Download
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="image-preview">
+                        <img src="{{ image.image.url }}" alt="{{ image.title }}" class="img-fluid w-100">
+                        <div class="zoom-overlay">
+                            <i class="fas fa-search-plus me-1"></i> Hover to zoom
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Dimensions</small>
+                            <strong>{{ image.image_width }}×{{ image.image_height }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Type</small>
+                            <strong>{{ image.get_image_type_display }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Uploaded</small>
+                            <strong>{{ image.uploaded_at|date:"M j, Y" }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analysis Results Column -->
+        <div class="col-lg-7">
+            <!-- Analysis Source Badge -->
+            <div class="mb-3">
+                {% if image.analysis_source == 'google_vision' %}
+                    <span class="badge bg-success fs-6">
+                        <i class="fab fa-google me-1"></i>Analyzed with Google Cloud Vision
+                    </span>
+                {% elif image.analysis_source == 'tesseract_ocr' %}
+                    <span class="badge bg-primary fs-6">
+                        <i class="fas fa-robot me-1"></i>Enhanced OCR Analysis
+                    </span>
+                {% elif image.analysis_source == 'ocr_description' %}
+                    <span class="badge bg-info fs-6">
+                        <i class="fas fa-file-alt me-1"></i>Generated Description
+                    </span>
+                {% endif %}
+                
+                {% if image.analysis_confidence > 0 %}
+                <span class="badge bg-secondary fs-6 ms-2">
+                    <i class="fas fa-chart-line me-1"></i>Confidence: {{ image.analysis_confidence|floatformat:1 }}%
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Translation and Speech Controls -->
+            {% if image.summary or image.extracted_text %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-language me-2"></i>Language & Speech Controls
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <label for="language-selector" class="form-label">Translate to:</label>
+                            <select id="language-selector" class="form-select">
+                                <option value="en" selected>English (Original)</option>
+                                
+                                <optgroup label="Indian Languages">
+                                    <option value="hi">Hindi</option>
+                                    <option value="ta">Tamil</option>
+                                    <option value="te">Telugu</option>
+                                    <option value="kn">Kannada</option>
+                                    <option value="ml">Malayalam</option>
+                                    <option value="bn">Bengali</option>
+                                    <option value="gu">Gujarati</option>
+                                    <option value="mr">Marathi</option>
+                                </optgroup>
+                                
+                                <optgroup label="European Languages">
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="it">Italian</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="ru">Russian</option>
+                                </optgroup>
+                                
+                                <optgroup label="Asian Languages">
+                                    <option value="zh">Chinese</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="ko">Korean</option>
+                                    <option value="th">Thai</option>
+                                    <option value="vi">Vietnamese</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="speech-controls">
+                                <button id="play-button" onclick="speakText()" class="play-btn" title="Listen">
+                                    <i class="fas fa-play-circle"></i>
+                                </button>
+                                <button id="pause-button" onclick="pauseSpeech()" class="pause-btn" title="Pause" style="display: none;">
+                                    <i class="fas fa-pause-circle"></i>
+                                </button>
+                                <button onclick="stopSpeech()" class="stop-btn" title="Stop">
+                                    <i class="fas fa-stop-circle"></i>
+                                </button>
+                                <span id="speaking-indicator" class="text-muted" style="display: none;">
+                                    <i class="fas fa-volume-up"></i> Speaking...
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Comprehensive Summary Card -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>Comprehensive Analysis Summary
+                    </h6>
+                </div>
+                <div class="card-body summary-container">
+                    {% if image.summary %}
+                        <div class="extracted-text">
+                            {{ image.summary|linebreaks }}
+                        </div>
+                        <hr>
+                        <h6 class="mb-2"><i class="fas fa-comments me-2"></i>Ask a question</h6>
+                        <form class="mb-3" onsubmit="return askImageQuestion(event)">
+                            {% csrf_token %}
+                            <div class="input-group">
+                                <input type="text" id="img-question" class="form-control" placeholder="Type your question about this image..." required>
+                                <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane me-1"></i>Ask</button>
+                            </div>
+                        </form>
+                        <div id="img-qa-list">
+                            {% if image.analysis_data and image.analysis_data.qa %}
+                                {% for qa in image.analysis_data.qa|slice:'-6:' %}
+                                    <div class="mb-2 p-2 border rounded bg-light">
+                                        <div><strong>Q:</strong> {{ qa.q }}</div>
+                                        <div class="mt-1"><strong>A:</strong> {{ qa.a }}</div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-muted">No questions yet.</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>No text could be extracted from this image.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Extracted Text Card -->
+            {% if image.extracted_text %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-font me-2"></i>Extracted Text
+                        <span class="badge bg-light text-dark ms-2">{{ image.word_count }} words</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="extracted-text p-3 bg-light rounded" style="max-height: 200px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">{{ image.extracted_text }}</pre>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Quality: {{ image.text_quality|title }} | 
+                            Characters: {{ image.character_count }} |
+                            Processing: {{ image.processing_variant|default:"Standard" }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Image Analysis Details -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Image Analysis Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Image Properties</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Color Type:</strong> {{ image.color_type|default:"Unknown" }}</li>
+                                <li><strong>Edge Density:</strong> {{ image.edge_density|floatformat:3 }}</li>
+                                <li><strong>Text Density:</strong> {{ image.text_density|floatformat:3 }}</li>
+                                <li><strong>Faces Detected:</strong> {{ image.faces_detected }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Analysis Results</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Source:</strong> {{ image.get_analysis_source_display }}</li>
+                                <li><strong>Type:</strong> {{ image.get_image_type_display }}</li>
+                                <li><strong>Confidence:</strong> {{ image.analysis_confidence|floatformat:1 }}%</li>
+                                <li><strong>Processing:</strong> {{ image.processing_variant|default:"Standard" }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Q&A -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>Ask Questions about this Image
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form id="img-qa-form" class="mb-3" onsubmit="return askImageQuestion(event)">
+                        <div class="input-group">
+                            <input type="text" id="img-question" class="form-control" placeholder="Ask a question..." required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-paper-plane me-1"></i> Ask
+                            </button>
+                        </div>
+                    </form>
+                    <div id="img-qa-list">
+                        {% if image.analysis_data and image.analysis_data.qa %}
+                            {% for qa in image.analysis_data.qa|slice:'-6:' %}
+                                <div class="mb-2 p-2 border rounded bg-light">
+                                    <div><strong>Q:</strong> {{ qa.q }}</div>
+                                    <div class="mt-1"><strong>A:</strong> {{ qa.a }}</div>
+                                    <small class="text-muted">{{ qa.ts }}</small>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-muted">No questions yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Labels and Objects -->
+            {% if image.labels or image.detected_objects %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>Detected Content
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if image.labels %}
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-tag me-1"></i>Detected Labels
+                            <span class="badge bg-primary ms-2">{{ image.get_labels_list|length }}</span>
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for label in image.get_labels_list %}
+                                <span class="badge bg-light text-dark border">{{ label }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if image.detected_objects %}
+                    <div>
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-cube me-1"></i>Detected Objects
+                            <span class="badge bg-success ms-2">{{ image.get_objects_list|length }}</span>
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for object in image.get_objects_list %}
+                                <span class="badge bg-light text-dark border">{{ object }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+let currentAudio = null;
+let isPlaying = false;
+
+function copyToClipboard() {
+    const text = `{{ image.summary|escapejs }}`;
+    navigator.clipboard.writeText(text).then(function() {
+        const btn = document.querySelector('button.btn-outline-primary');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    });
+}
+
+function speakText() {
+    const language = document.getElementById('language-selector').value;
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Show speaking indicator
+    document.getElementById('speaking-indicator').style.display = 'inline';
+    document.getElementById('play-button').style.display = 'none';
+    document.getElementById('pause-button').style.display = 'inline';
+    
+    fetch(`{% url 'image_text_to_speech' image.pk %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        },
+        body: `language=${language}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Create and play audio
+            currentAudio = new Audio(data.audio_url);
+            currentAudio.play();
+            isPlaying = true;
+            
+            currentAudio.onended = function() {
+                stopSpeech();
+            };
+        } else {
+            alert('Error: ' + data.message);
+            stopSpeech();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error playing audio');
+        stopSpeech();
+    });
+}
+
+function pauseSpeech() {
+    if (currentAudio && isPlaying) {
+        currentAudio.pause();
+        isPlaying = false;
+        document.getElementById('pause-button').style.display = 'none';
+        document.getElementById('play-button').style.display = 'inline';
+    }
+}
+
+function stopSpeech() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+        isPlaying = false;
+    }
+    
+    document.getElementById('speaking-indicator').style.display = 'none';
+    document.getElementById('pause-button').style.display = 'none';
+    document.getElementById('play-button').style.display = 'inline';
+}
+
+function askImageQuestion(e) {
+    e.preventDefault();
+    const q = document.getElementById('img-question').value.trim();
+    if (!q) return false;
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch("{% url 'ask_image_question' image.pk %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrftoken },
+        body: `question=${encodeURIComponent(q)}`
+    }).then(r => r.json()).then(data => {
+        if (data.status === 'success') {
+            const list = document.getElementById('img-qa-list');
+            const block = document.createElement('div');
+            block.className = 'mb-2 p-2 border rounded bg-light';
+            block.innerHTML = `<div><strong>Q:</strong> ${q}</div><div class='mt-1'><strong>A:</strong> ${data.answer}</div>`;
+            list.prepend(block);
+            document.getElementById('img-question').value = '';
+        } else {
+            alert(data.error || 'Failed to get answer');
+        }
+    }).catch(err => {
+        console.error(err);
+        alert('Error asking question');
+    });
+    return false;
+}
+
+// Language change handler
+document.getElementById('language-selector').addEventListener('change', function() {
+    const language = this.value;
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    if (language !== 'en') {
+        fetch(`{% url 'update_image_language' image.pk %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrftoken
+            },
+            body: `language=${language}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Translation error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating language');
+        });
+    } else {
+        location.reload();
+    }
+});
+</script>
+{% endblock %}

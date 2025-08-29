@@ -1,0 +1,753 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ pdf.title }} - Summary{% endblock %}
+
+{% block extra_head %}
+<!-- Add the translation CSS file -->
+<link rel="stylesheet" href="{% static 'css/translation.css' %}">
+
+<!-- Add jQuery for AJAX functionality -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Add the common JavaScript file -->
+<script src="{% static 'js/common.js' %}"></script>
+
+<!-- CSRF token for AJAX requests -->
+<script>
+    function checkTranslationStatus(taskId) {
+        const interval = setInterval(() => {
+            $.ajax({
+                url: `/pdf/translation_status/${taskId}/`,
+                type: 'GET',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        clearInterval(interval);
+                        location.reload();
+                    } else if (response.status === 'error') {
+                        clearInterval(interval);
+                        alert('Translation failed: ' + response.message);
+                        document.getElementById('loading-indicator').style.display = 'none';
+                    }
+                },
+                error: function() {
+                    clearInterval(interval);
+                    alert('Error checking translation status.');
+                    document.getElementById('loading-indicator').style.display = 'none';
+                }
+            });
+        }, 2000); // Poll every 2 seconds
+    }
+
+    function updateLanguage() {
+        const pdfId = "{{ pdf.id }}";
+        const language = document.getElementById('language-selector').value;
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Show loading indicator
+        document.getElementById('loading-indicator').style.display = 'inline';
+
+        $.ajax({
+            url: `/pdfs/${pdfId}/update_language/`,
+            type: 'POST',
+            data: {
+                language: language,
+                csrfmiddlewaretoken: csrftoken
+            },
+            success: function(response) {
+                if (response.status === 'processing') {
+                    checkTranslationStatus(response.task_id);
+                } else if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error updating language: ' + response.message);
+                    document.getElementById('loading-indicator').style.display = 'none';
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('AJAX Error: ' + error);
+                document.getElementById('loading-indicator').style.display = 'none';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const languageSelector = document.getElementById('language-selector');
+        if (languageSelector) {
+            languageSelector.addEventListener('change', updateLanguage);
+        }
+    });
+
+    // Global audio variables
+    let currentAudio = null;
+    let currentAudioType = null;
+
+    function convertToSpeech(summaryType = 'gemini') {
+        const pdfId = "{{ pdf.id }}";
+        const language = document.getElementById('language-selector') ? document.getElementById('language-selector').value : 'en';
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        let ttsButton, ttsText, ttsLoading;
+        
+        if (summaryType === 'bert') {
+            // For BERT summary, find the button that was clicked
+            ttsButton = event.target.closest('button');
+            ttsText = ttsButton.querySelector('span') || ttsButton;
+            ttsLoading = document.getElementById('tts-loading');
+        } else {
+            // For Gemini summary
+            ttsButton = document.getElementById('tts-button');
+            ttsText = document.getElementById('tts-text');
+            ttsLoading = document.getElementById('tts-loading');
+        }
+
+        // Disable button and show loading
+        ttsButton.disabled = true;
+        ttsText.textContent = 'Generating...';
+        ttsLoading.style.display = 'inline';
+
+        $.ajax({
+            url: `/pdfs/${pdfId}/text_to_speech/`,
+            type: 'POST',
+            data: {
+                language: language,
+                summary_type: summaryType,
+                csrfmiddlewaretoken: csrftoken
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Stop any currently playing audio
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+
+                    // Get the audio element
+                    const audioId = `${summaryType}-audio`;
+                    const audio = document.getElementById(audioId);
+                    const audioPlayer = document.getElementById(`${summaryType}-audio-player`);
+                    
+                    // Set the audio source
+                    audio.src = response.audio_url;
+                    
+                    // Show the audio player
+                    audioPlayer.style.display = 'block';
+                    
+                    // Play the audio
+                    audio.play();
+                    currentAudio = audio;
+                    currentAudioType = summaryType;
+                    
+                    // Update button to show playing state
+                    ttsText.textContent = 'Playing...';
+                    ttsButton.classList.remove('btn-outline-primary');
+                    ttsButton.classList.add('btn-success');
+                    
+                    // Update pause button text
+                    const pauseBtn = document.getElementById(`${summaryType}-pause-btn`);
+                    pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                    pauseBtn.classList.remove('btn-outline-success');
+                    pauseBtn.classList.add('btn-outline-primary');
+                    
+                    // Reset button after audio finishes
+                    audio.onended = function() {
+                        ttsText.textContent = 'Listen';
+                        ttsButton.disabled = false;
+                        ttsButton.classList.remove('btn-success');
+                        ttsButton.classList.add('btn-outline-primary');
+                        ttsLoading.style.display = 'none';
+                        
+                        // Reset pause button
+                        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+                        pauseBtn.classList.remove('btn-outline-primary');
+                        pauseBtn.classList.add('btn-outline-success');
+                        
+                        currentAudio = null;
+                        currentAudioType = null;
+                    };
+                    
+                    // Handle audio errors
+                    audio.onerror = function() {
+                        alert('Error playing audio. Please try again.');
+                        ttsText.textContent = 'Listen';
+                        ttsButton.disabled = false;
+                        ttsButton.classList.remove('btn-success');
+                        ttsButton.classList.add('btn-outline-primary');
+                        ttsLoading.style.display = 'none';
+                        currentAudio = null;
+                        currentAudioType = null;
+                    };
+                } else {
+                    alert('Error: ' + response.message);
+                    ttsText.textContent = 'Listen';
+                    ttsButton.disabled = false;
+                    ttsLoading.style.display = 'none';
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error generating speech: ' + error);
+                ttsText.textContent = 'Listen';
+                ttsButton.disabled = false;
+                ttsLoading.style.display = 'none';
+            }
+        });
+    }
+
+    // Enhanced Question-Answer functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const questionForm = document.getElementById('question-form');
+        const questionInput = document.getElementById('question-input');
+        const askButton = document.getElementById('ask-button');
+        const askText = document.getElementById('ask-text');
+        const questionLoading = document.getElementById('question-loading');
+        const liveAnswer = document.getElementById('live-answer');
+        const answerContent = document.getElementById('answer-content');
+        const answerTimestamp = document.getElementById('answer-timestamp');
+
+        if (questionForm) {
+            questionForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const question = questionInput.value.trim();
+                if (!question) {
+                    alert('Please enter a question.');
+                    return;
+                }
+
+                // Show loading state
+                askButton.disabled = true;
+                askText.textContent = 'Processing...';
+                questionLoading.style.display = 'block';
+                liveAnswer.style.display = 'none';
+
+                // Send AJAX request
+                const pdfId = "{{ pdf.id }}";
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                $.ajax({
+                    url: `/pdfs/${pdfId}/ask/`,
+                    type: 'POST',
+                    data: {
+                        question: question,
+                        csrfmiddlewaretoken: csrftoken
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            // Display the answer
+                            answerContent.innerHTML = response.answer.replace(/\n/g, '<br>');
+                            answerTimestamp.textContent = `Answered on: ${response.timestamp}`;
+                            liveAnswer.style.display = 'block';
+                            
+                            // Clear the input
+                            questionInput.value = '';
+                            
+                            // Scroll to the answer
+                            liveAnswer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            // Reload page after a short delay to update the Q&A history
+                            setTimeout(function() {
+                                location.reload();
+                            }, 3000);
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Error processing question: ' + error);
+                    },
+                    complete: function() {
+                        // Reset button state
+                        askButton.disabled = false;
+                        askText.textContent = 'Ask Question';
+                        questionLoading.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Add some helpful question suggestions
+        const suggestions = [
+            "What is the main topic of this document?",
+            "What are the key points discussed?",
+            "What are the main conclusions?",
+            "What are the important dates mentioned?",
+            "What are the key figures or statistics?"
+        ];
+
+        // Add suggestion button (optional)
+        const suggestionButton = document.createElement('button');
+        suggestionButton.type = 'button';
+        suggestionButton.className = 'btn btn-outline-secondary btn-sm ms-2';
+        suggestionButton.innerHTML = '<i class="fas fa-lightbulb"></i> Suggestions';
+        suggestionButton.onclick = function() {
+            const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+            questionInput.value = randomSuggestion;
+            questionInput.focus();
+        };
+        
+        if (askButton && askButton.parentNode) {
+            askButton.parentNode.appendChild(suggestionButton);
+        }
+    });
+
+    // Function to convert question text to speech
+    function convertQuestionToSpeech(questionText) {
+        // Use the browser's built-in speech synthesis
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(questionText);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            speechSynthesis.speak(utterance);
+        } else {
+            alert('Speech synthesis not supported in this browser.');
+        }
+    }
+
+    // Audio control functions
+    function pauseResumeAudio(audioType) {
+        const audio = document.getElementById(`${audioType}-audio`);
+        const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+        
+        if (!audio) return;
+        
+        if (audio.paused) {
+            // Resume audio
+            audio.play();
+            pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+            pauseBtn.classList.remove('btn-outline-success');
+            pauseBtn.classList.add('btn-outline-primary');
+        } else {
+            // Pause audio
+            audio.pause();
+            pauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+            pauseBtn.classList.remove('btn-outline-primary');
+            pauseBtn.classList.add('btn-outline-success');
+        }
+    }
+
+    function stopAudio(audioType) {
+        const audio = document.getElementById(`${audioType}-audio`);
+        const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+        
+        if (!audio) return;
+        
+        // Stop audio and reset to beginning
+        audio.pause();
+        audio.currentTime = 0;
+        
+        // Reset pause button
+        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+        pauseBtn.classList.remove('btn-outline-primary');
+        pauseBtn.classList.add('btn-outline-success');
+        
+        // Reset listen button if it exists
+        const ttsButton = document.getElementById('tts-button');
+        const ttsText = document.getElementById('tts-text');
+        if (ttsButton && ttsText) {
+            ttsText.textContent = 'Listen';
+            ttsButton.disabled = false;
+            ttsButton.classList.remove('btn-success');
+            ttsButton.classList.add('btn-outline-primary');
+        }
+        
+        currentAudio = null;
+        currentAudioType = null;
+    }
+
+    function restartAudio(audioType) {
+        const audio = document.getElementById(`${audioType}-audio`);
+        const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+        
+        if (!audio) return;
+        
+        // Restart audio from beginning
+        audio.currentTime = 0;
+        audio.play();
+        
+        // Update pause button
+        pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+        pauseBtn.classList.remove('btn-outline-success');
+        pauseBtn.classList.add('btn-outline-primary');
+        
+        currentAudio = audio;
+        currentAudioType = audioType;
+    }
+
+    // Add event listeners for audio controls
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners for audio elements
+        const audioElements = ['gemini-audio', 'bert-audio'];
+        
+        audioElements.forEach(audioId => {
+            const audio = document.getElementById(audioId);
+            if (audio) {
+                audio.addEventListener('play', function() {
+                    const audioType = audioId.split('-')[0];
+                    const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+                    if (pauseBtn) {
+                        pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                        pauseBtn.classList.remove('btn-outline-success');
+                        pauseBtn.classList.add('btn-outline-primary');
+                    }
+                });
+                
+                audio.addEventListener('pause', function() {
+                    const audioType = audioId.split('-')[0];
+                    const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+                    if (pauseBtn) {
+                        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+                        pauseBtn.classList.remove('btn-outline-primary');
+                        pauseBtn.classList.add('btn-outline-success');
+                    }
+                });
+                
+                audio.addEventListener('ended', function() {
+                    const audioType = audioId.split('-')[0];
+                    const pauseBtn = document.getElementById(`${audioType}-pause-btn`);
+                    if (pauseBtn) {
+                        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+                        pauseBtn.classList.remove('btn-outline-primary');
+                        pauseBtn.classList.add('btn-outline-success');
+                    }
+                    
+                    // Reset listen button
+                    const ttsButton = document.getElementById('tts-button');
+                    const ttsText = document.getElementById('tts-text');
+                    if (ttsButton && ttsText) {
+                        ttsText.textContent = 'Listen';
+                        ttsButton.disabled = false;
+                        ttsButton.classList.remove('btn-success');
+                        ttsButton.classList.add('btn-outline-primary');
+                    }
+                    
+                    currentAudio = null;
+                    currentAudioType = null;
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Add CSRF token for AJAX requests -->
+{% csrf_token %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-file-pdf text-primary me-2"></i>
+                        {{ pdf.title }}
+                    </h2>
+                    <span class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ pdf.uploaded_at|date:"F j, Y, g:i a" }}
+                    </span>
+                </div>
+
+                {% if pdf.summary_type == 'bert_gpt2' %}
+                <div class="row g-4">
+                    <!-- BERT Summary -->
+                    <div class="col-md-6">
+                        <div class="summary-container h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-robot fa-2x text-primary me-2"></i>
+                                    <h4 class="mb-0">BERT Summary</h4>
+                                </div>
+                                {% if pdf.bert_summary %}
+                                <button class="btn btn-outline-primary btn-sm" onclick="convertToSpeech('bert')" title="Listen to BERT Summary">
+                                    <i class="fas fa-volume-up"></i> Listen
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="summary-content">
+                                {% if pdf.bert_summary %}
+                                    <p class="text-justify">{{ pdf.bert_summary }}</p>
+                                {% else %}
+                                    <p class="text-muted">BERT summary not available.</p>
+                                {% endif %}
+                            </div>
+
+                            <!-- Audio Player for BERT Summary -->
+                            <div id="bert-audio-player" class="mt-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-headphones text-primary me-2"></i>Audio Player
+                                            </h6>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="pauseResumeAudio('bert')" id="bert-pause-btn">
+                                                    <i class="fas fa-pause"></i> Pause
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="stopAudio('bert')" id="bert-stop-btn">
+                                                    <i class="fas fa-stop"></i> Stop
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-info" onclick="restartAudio('bert')" id="bert-restart-btn">
+                                                    <i class="fas fa-redo"></i> Restart
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <audio id="bert-audio" controls style="width: 100%;">
+                                            <source src="" type="audio/mpeg">
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Use the controls above or the native audio player below
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GPT-2 Summary -->
+                    <div class="col-md-6">
+                        <div class="summary-container h-100">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-brain fa-2x text-primary me-2"></i>
+                                <h4 class="mb-0">GPT-2 Summary</h4>
+                            </div>
+                            <div class="summary-content">
+                                {% if pdf.gpt2_summary %}
+                                    <p class="text-justify">{{ pdf.gpt2_summary }}</p>
+                                {% else %}
+                                    <p class="text-muted">GPT-2 summary not available.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="row">
+                    <!-- Gemini Summary -->
+                    <div class="col-12">
+                        <div class="summary-container h-100">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-magic fa-2x text-primary me-2"></i>
+                                <h4 class="mb-0">Google Gemini Summary</h4>
+                            </div>
+
+                            <!-- Translation Controls -->
+                            <div class="translation-controls d-flex align-items-center gap-2">
+                                <select id="language-selector" class="form-select form-select-sm" style="width: auto;">
+                                    <!-- English -->
+                                    <option value="en" {% if pdf.current_language == 'en' %}selected{% endif %}>English</option>
+
+                                    <!-- Indian Languages -->
+                                    <optgroup label="Indian Languages">
+                                        {% for code, name in pdf.LANGUAGE_CHOICES %}
+                                            {% if code in 'hi,ta,te,mr,bn,gu,kn,ml,pa,ur' %}
+                                                <option value="{{ code }}" {% if pdf.current_language == code %}selected{% endif %}>{{ name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+
+                                    <!-- European Languages -->
+                                    <optgroup label="European Languages">
+                                        {% for code, name in pdf.LANGUAGE_CHOICES %}
+                                            {% if code in 'es,fr,de,it,pt,ru' %}
+                                                <option value="{{ code }}" {% if pdf.current_language == code %}selected{% endif %}>{{ name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+
+                                    <!-- Asian Languages -->
+                                    <optgroup label="Asian Languages">
+                                        {% for code, name in pdf.LANGUAGE_CHOICES %}
+                                            {% if code in 'zh,ja,ko,th,vi' %}
+                                                <option value="{{ code }}" {% if pdf.current_language == code %}selected{% endif %}>{{ name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+
+                                    <!-- Middle Eastern Languages -->
+                                    <optgroup label="Middle Eastern Languages">
+                                        {% for code, name in pdf.LANGUAGE_CHOICES %}
+                                            {% if code in 'ar,fa,tr' %}
+                                                <option value="{{ code }}" {% if pdf.current_language == code %}selected{% endif %}>{{ name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                                
+                                <!-- Text-to-Speech Button -->
+                                <button id="tts-button" class="btn btn-outline-primary btn-sm" onclick="convertToSpeech()" title="Listen to Summary">
+                                    <i class="fas fa-volume-up"></i>
+                                    <span id="tts-text">Listen</span>
+                                </button>
+                                
+                                <span id="loading-indicator" style="display: none;">
+                                    <i class="fas fa-spinner fa-spin"></i> Translating...
+                                </span>
+                                
+                                <span id="tts-loading" style="display: none;">
+                                    <i class="fas fa-spinner fa-spin"></i> Generating Speech...
+                                </span>
+                            </div>
+
+                            <div class="summary-content mt-3">
+                                {% if pdf.current_language == 'en' %}
+                                    {% if pdf.gemini_summary %}
+                                        <p class="text-justify">{{ pdf.gemini_summary }}</p>
+                                    {% else %}
+                                        <p class="text-muted">Gemini summary not available.</p>
+                                    {% endif %}
+                                {% else %}
+                                    {% if pdf.translated_summary %}
+                                        <p class="text-justify">{{ pdf.translated_summary }}</p>
+                                    {% else %}
+                                        <p class="text-muted">Translation not available.</p>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <!-- Audio Player for Gemini Summary -->
+                            <div id="gemini-audio-player" class="mt-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-headphones text-primary me-2"></i>Audio Player
+                                            </h6>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="pauseResumeAudio('gemini')" id="gemini-pause-btn">
+                                                    <i class="fas fa-pause"></i> Pause
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="stopAudio('gemini')" id="gemini-stop-btn">
+                                                    <i class="fas fa-stop"></i> Stop
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-info" onclick="restartAudio('gemini')" id="gemini-restart-btn">
+                                                    <i class="fas fa-redo"></i> Restart
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <audio id="gemini-audio" controls style="width: 100%;">
+                                            <source src="" type="audio/mpeg">
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Use the controls above or the native audio player below
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Question Form -->
+                <div class="mt-4">
+                    <h4 class="mb-3">
+                        <i class="fas fa-question-circle text-primary me-2"></i>
+                        Ask a Question
+                    </h4>
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="question-form" class="needs-validation" novalidate>
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <textarea 
+                                        id="question-input" 
+                                        name="question" 
+                                        class="form-control" 
+                                        rows="3" 
+                                        placeholder="Enter your question about the PDF content..." 
+                                        required
+                                    ></textarea>
+                                    <div class="invalid-feedback">
+                                        Please enter your question.
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <button type="submit" id="ask-button" class="btn btn-primary">
+                                        <i class="fas fa-question-circle me-2"></i>
+                                        <span id="ask-text">Ask Question</span>
+                                    </button>
+                                    <div id="question-loading" style="display: none;">
+                                        <i class="fas fa-spinner fa-spin text-primary"></i>
+                                        <span class="ms-2">Processing your question...</span>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <!-- Live Answer Display -->
+                            <div id="live-answer" class="mt-3" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6 class="alert-heading">
+                                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                                        Answer
+                                    </h6>
+                                    <div id="answer-content"></div>
+                                    <hr>
+                                    <small class="text-muted" id="answer-timestamp"></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions and Answers History -->
+                {% if questions %}
+                <div class="mt-4">
+                    <h4 class="mb-3">
+                        <i class="fas fa-history text-info me-2"></i>
+                        Questions & Answers History
+                    </h4>
+                    <div class="qa-list">
+                        {% for qa in qa_pairs %}
+                        <div class="qa-item mb-4">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-question-circle text-primary me-2"></i>
+                                        <strong class="flex-grow-1">{{ qa.question }}</strong>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="convertQuestionToSpeech('{{ qa.question|escapejs }}')" title="Listen to Question">
+                                            <i class="fas fa-volume-up"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="answer">
+                                        <i class="fas fa-comment-dots text-success me-2"></i>
+                                        <div class="answer-content">{{ qa.answer|linebreaks }}</div>
+                                    </div>
+                                    <div class="text-muted small mt-2">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {% if qa.question|slice:":1" == "[" %}
+                                            {{ qa.question|slice:"1:20" }}
+                                        {% else %}
+                                            Recent
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="{{ pdf.file.url }}" class="btn btn-outline-primary me-2" target="_blank">
+                <i class="fas fa-download me-2"></i>Download Original PDF
+            </a>
+            <a href="{% url 'pdf_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to List
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

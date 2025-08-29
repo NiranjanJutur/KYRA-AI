@@ -1,0 +1,444 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYRA AI - {% block title %}Home{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/translation.css' %}" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/common.js' %}"></script>
+    {% block extra_head %}{% endblock %}
+    <style>
+        :root {
+            --primary-color: #64B5F6;
+            --secondary-color: #1B2735;
+            --accent-color: #4FC3F7;
+            --text-color: #FFFFFF; /* Bright white for maximum contrast */
+            --nav-bg: rgba(40, 55, 71, 0.8); /* Slightly lighter background for better contrast */
+        }
+
+        body {
+            background: #000000;
+            background-image: 
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.1)),
+                url('/static/summarizer/bg.jpg.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            color: var(--text-color);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Remove the previous body::before and body::after styles as they might interfere with the background */
+        body::before {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60vh;
+            background: 
+                linear-gradient(180deg, 
+                    rgba(100,181,246,0) 0%,
+                    rgba(100,181,246,0.2) 50%,
+                    rgba(100,181,246,0.4) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: 
+                radial-gradient(ellipse at 50% 100%,
+                    rgba(100,181,246,0.5) 0%,
+                    rgba(100,181,246,0.3) 20%,
+                    rgba(100,181,246,0.1) 40%,
+                    transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sidenav {
+            background: rgba(27, 39, 53, 0.8);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            z-index: 1030;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-header {
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            color: var(--text-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .nav-links {
+            flex: 1;
+            padding: 1rem;
+        }
+
+        .nav-links a {
+            display: block;
+            color: rgba(255,255,255,0.8);
+            padding: 0.75rem 1rem;
+            margin: 0.2rem 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-size: 1rem;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            transform: translateX(5px);
+        }
+
+        .nav-links a.active {
+            background: var(--primary-color);
+            color: #fff;
+        }
+
+        .nav-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .login-container {
+            text-align: center;
+        }
+
+        #login-btn {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        #login-btn:hover {
+            background: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            background: rgba(27, 39, 53, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 768px) {
+            .sidenav {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .sidenav.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidenav">
+        <div class="nav-header">
+            <a href="{% url 'upload_pdf' %}" class="logo">
+                <i class="fas fa-file-alt me-2"></i>
+                KYRA AI
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="{% url 'upload_pdf' %}" class="{% if request.path == '/' %}active{% endif %}">
+                <i class="fas fa-file-upload me-2"></i> Upload PDF
+            </a>
+            <a href="{% url 'pdf_list' %}" class="{% if '/pdfs/' in request.path %}active{% endif %}">
+                <i class="fas fa-list me-2"></i> PDF List
+            </a>
+            <a href="{% url 'upload_image' %}" class="{% if '/images/' in request.path %}active{% endif %}">
+                <i class="fas fa-image me-2"></i> Upload Image
+            </a>
+            <a href="{% url 'image_list' %}">
+                <i class="fas fa-images me-2"></i> Image List
+            </a>
+        </div>
+        <div class="nav-footer">
+            <div class="login-container">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'logout' %}" class="btn" id="login-btn">
+                        <i class="fas fa-sign-out-alt me-2"></i> Logout
+                    </a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn" id="login-btn">
+                        <i class="fas fa-sign-in-alt me-2"></i> Login
+                    </a>
+                    <a href="{% url 'register' %}" class="btn mt-2" id="login-btn">
+                        <i class="fas fa-user-plus me-2"></i> Register
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+    <script>
+        function toggleLogin() {
+            // Add login functionality here
+            console.log('Toggle login clicked');
+        }
+    </script>
+</body>
+</html>
+
+<style>
+    :root {
+        --primary-color: #64B5F6;
+        --secondary-color: #1B2735;
+        --accent-color: #4FC3F7;
+        --text-color: #FFFFFF;
+        --nav-bg: rgba(27, 39, 53, 0.8);
+    }
+
+    .sidenav {
+        background: var(--nav-bg);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        min-height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 250px;
+        z-index: 1030;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-direction: column;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .nav-header {
+        padding: 2rem 1rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+        font-size: 1.5rem;
+        color: var(--text-color);
+        text-decoration: none;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-align-items: center;
+        align-items: center;
+        -webkit-justify-content: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .nav-links {
+        -webkit-flex: 1;
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .nav-links a {
+        display: block;
+        color: rgba(255, 255, 255, 0.8);
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
+        border-radius: 8px;
+        -webkit-transition: all 0.3s ease;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-size: 1rem;
+        position: relative;
+    }
+
+    .nav-links a:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        -webkit-transform: translateX(5px);
+        transform: translateX(5px);
+    }
+
+    .nav-links a.active {
+        background: var(--primary-color);
+        color: #fff;
+        font-weight: 500;
+    }
+
+    .nav-footer {
+        padding: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: auto;
+    }
+
+    .login-container {
+        text-align: center;
+    }
+
+    #login-btn {
+        background: var(--primary-color);
+        color: #fff;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        -webkit-transition: all 0.3s ease;
+        transition: all 0.3s ease;
+        width: 100%;
+        display: inline-block;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    #login-btn:hover {
+        background: var(--accent-color);
+        -webkit-transform: translateY(-2px);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    @media (max-width: 768px) {
+        .sidenav {
+            -webkit-transform: translateX(-100%);
+            transform: translateX(-100%);
+            -webkit-transition: transform 0.3s ease;
+            transition: transform 0.3s ease;
+        }
+        .sidenav.show {
+            -webkit-transform: translateX(0);
+            transform: translateX(0);
+        }
+    }
+</style>
+
+<style>
+    .profile-section {
+        position: relative;
+        padding: 1rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        margin-bottom: 1rem;
+    }
+
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--primary-color);
+    }
+
+    .profile-name {
+        color: var(--text-color);
+        font-weight: 500;
+    }
+
+    .profile-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .profile-link {
+        color: var(--text-color);
+        text-decoration: none;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+    }
+
+    .profile-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--primary-color);
+    }
+
+    .summary-container {
+        background: rgba(27, 39, 53, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .summary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .summary-content {
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+</style>

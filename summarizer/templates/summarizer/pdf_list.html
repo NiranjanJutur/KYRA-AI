@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}My PDFs{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="mb-0">
+            <i class="fas fa-folder-open text-primary me-2"></i>
+            My PDF Summaries
+        </h2>
+    </div>
+    <div class="col-auto">
+        <a href="{% url 'upload_pdf' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Upload New PDF
+        </a>
+    </div>
+</div>
+
+{% if pdfs %}
+    <div class="row g-4">
+        {% for pdf in pdfs %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title text-truncate mb-0" title="{{ pdf.title }}">
+                            <i class="fas fa-file-pdf text-primary me-2"></i>
+                            {{ pdf.title }}
+                        </h5>
+                        <span class="badge bg-primary rounded-pill">
+                            {{ pdf.uploaded_at|date:"M d" }}
+                        </span>
+                    </div>
+
+                    <div class="summary-preview mb-3">
+                        <h6 class="text-muted mb-2">BERT Summary</h6>
+                        {% if pdf.bert_summary %}
+                            <p class="text-truncate mb-2" title="{{ pdf.bert_summary }}">
+                                {{ pdf.bert_summary|truncatechars:100 }}
+                            </p>
+                        {% else %}
+                            <p class="text-muted mb-2">No BERT summary available</p>
+                        {% endif %}
+
+                        <h6 class="text-muted mb-2">GPT-2 Summary</h6>
+                        {% if pdf.gpt2_summary %}
+                            <p class="text-truncate" title="{{ pdf.gpt2_summary }}">
+                                {{ pdf.gpt2_summary|truncatechars:100 }}
+                            </p>
+                        {% else %}
+                            <p class="text-muted">No GPT-2 summary available</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'pdf_detail' pdf.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye me-1"></i>View Details
+                        </a>
+                        <a href="{{ pdf.file.url }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                            <i class="fas fa-download me-1"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <nav class="mt-4" aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+{% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+            <h4>No PDFs uploaded yet</h4>
+            <p class="text-muted">Start by uploading a PDF to generate summaries</p>
+            <a href="{% url 'upload_pdf' %}" class="btn btn-primary">
+                <i class="fas fa-cloud-upload-alt me-2"></i>Upload PDF
+            </a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

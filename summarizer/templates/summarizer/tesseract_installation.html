@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Tesseract OCR Installation Guide</h3>
+                </div>
+                <div class="card-body p-5">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> Tesseract OCR is required for the image text extraction feature to work properly.
+                    </div>
+
+                    <h4 class="mb-4">Installation Instructions</h4>
+
+                    <div class="accordion" id="installationAccordion">
+                        <!-- Windows Installation -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="windowsHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#windowsCollapse" aria-expanded="true" aria-controls="windowsCollapse">
+                                    <i class="fab fa-windows me-2"></i> Windows Installation
+                                </button>
+                            </h2>
+                            <div id="windowsCollapse" class="accordion-collapse collapse show" aria-labelledby="windowsHeading" data-bs-parent="#installationAccordion">
+                                <div class="accordion-body">
+                                    <ol class="list-group list-group-numbered mb-4">
+                                        <li class="list-group-item">Download the <strong>latest installer</strong> from <a href="https://github.com/UB-Mannheim/tesseract/wiki" target="_blank">Tesseract at UB Mannheim</a> (recommended version: 5.x)</li>
+                                        <li class="list-group-item">Run the installer as Administrator
+                                            <ul class="mt-2">
+                                                <li>Make sure to select "Additional language data" during installation if you need support for languages other than English</li>
+                                                <li>Note the installation path (default is <code>C:\Program Files\Tesseract-OCR</code>)</li>
+                                                <li>Check the option to add Tesseract to your PATH during installation if available</li>
+                                            </ul>
+                                        </li>
+                                        <li class="list-group-item">Add Tesseract to your system PATH (if not done during installation):
+                                            <ul class="mt-2">
+                                                <li>Right-click on 'This PC' or 'My Computer' and select 'Properties'</li>
+                                                <li>Click on 'Advanced system settings'</li>
+                                                <li>Click on 'Environment Variables'</li>
+                                                <li>Under 'System variables', find and select 'Path', then click 'Edit'</li>
+                                                <li>Click 'New' and add the Tesseract installation path (e.g., <code>C:\Program Files\Tesseract-OCR</code>)</li>
+                                                <li>Click 'OK' on all dialogs to save changes</li>
+                                            </ul>
+                                        </li>
+                                        <li class="list-group-item">Restart your computer to apply the changes</li>
+                                        <li class="list-group-item">Verify installation by opening Command Prompt and typing: <code>tesseract --version</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- macOS Installation -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="macosHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macosCollapse" aria-expanded="false" aria-controls="macosCollapse">
+                                    <i class="fab fa-apple me-2"></i> macOS Installation
+                                </button>
+                            </h2>
+                            <div id="macosCollapse" class="accordion-collapse collapse" aria-labelledby="macosHeading" data-bs-parent="#installationAccordion">
+                                <div class="accordion-body">
+                                    <ol class="list-group list-group-numbered mb-4">
+                                        <li class="list-group-item">Install Homebrew if you don't have it already:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">Install Tesseract using Homebrew:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>brew install tesseract</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">Install additional language data if needed:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>brew install tesseract-lang</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">Verify installation by opening Terminal and typing:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>tesseract --version</code>
+                                            </div>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Linux Installation -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="linuxHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#linuxCollapse" aria-expanded="false" aria-controls="linuxCollapse">
+                                    <i class="fab fa-linux me-2"></i> Linux Installation
+                                </button>
+                            </h2>
+                            <div id="linuxCollapse" class="accordion-collapse collapse" aria-labelledby="linuxHeading" data-bs-parent="#installationAccordion">
+                                <div class="accordion-body">
+                                    <ol class="list-group list-group-numbered mb-4">
+                                        <li class="list-group-item">For Ubuntu/Debian:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>sudo apt update</code><br>
+                                                <code>sudo apt install tesseract-ocr</code><br>
+                                                <code>sudo apt install libtesseract-dev</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">For Fedora:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>sudo dnf install tesseract</code><br>
+                                                <code>sudo dnf install tesseract-devel</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">For Arch Linux:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>sudo pacman -S tesseract</code><br>
+                                                <code>sudo pacman -S tesseract-data-eng</code>
+                                            </div>
+                                        </li>
+                                        <li class="list-group-item">Verify installation by opening Terminal and typing:
+                                            <div class="bg-light p-2 mt-2 rounded">
+                                                <code>tesseract --version</code>
+                                            </div>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Python Package Installation -->
+                    <h4 class="mt-5 mb-3">Python Package Installation</h4>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> After installing Tesseract OCR, you also need to install the Python wrapper.
+                    </div>
+                    <div class="card mb-4">
+                        <div class="card-body bg-light">
+                            <p>Install the pytesseract package:</p>
+                            <div class="bg-dark text-light p-3 rounded">
+                                <code>pip install pytesseract</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Troubleshooting -->
+                    <h4 class="mt-5 mb-3">Troubleshooting</h4>
+                    <div class="accordion" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="commonIssuesHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commonIssuesCollapse" aria-expanded="false" aria-controls="commonIssuesCollapse">
+                                    Common Issues & Solutions
+                                </button>
+                            </h2>
+                            <div id="commonIssuesCollapse" class="accordion-collapse collapse" aria-labelledby="commonIssuesHeading" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">"Tesseract is not installed or it's not in your PATH"</div>
+                                        <div class="card-body">
+                                            <p>This error occurs when the system cannot find the Tesseract executable.</p>
+                                            <p><strong>Solutions:</strong></p>
+                                            <ol>
+                                                <li>Verify Tesseract is installed by running <code>tesseract --version</code> in Command Prompt/Terminal</li>
+                                                <li>If installed but still getting the error, specify the path directly in your code:</li>
+                                            </ol>
+                                            <div class="bg-light p-2 rounded">
+                                                <pre><code>import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Adjust path as needed</code></pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">"pytesseract module is not installed"</div>
+                                        <div class="card-body">
+                                            <p>This error occurs when the Python wrapper for Tesseract is missing.</p>
+                                            <p><strong>Solution:</strong></p>
+                                            <div class="bg-light p-2 rounded">
+                                                <code>pip install pytesseract</code>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">Poor Text Recognition Quality</div>
+                                        <div class="card-body">
+                                            <p>If Tesseract is not accurately recognizing text in your images:</p>
+                                            <p><strong>Solutions:</strong></p>
+                                            <ol>
+                                                <li>Use higher resolution images</li>
+                                                <li>Ensure good contrast between text and background</li>
+                                                <li>Pre-process images (resize, convert to grayscale, apply thresholding)</li>
+                                                <li>Try different Tesseract configuration options</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 text-center">
+                        <a href="{% url 'upload_image' %}" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i>Return to Image Upload</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Upload PDF{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <h2 class="text-center mb-4">
+                    <i class="fas fa-cloud-upload-alt text-primary me-2"></i>
+                    Upload PDF for Summarization
+  it              </h2>
+                <p class="text-center text-muted mb-4">Upload your PDF document and choose your preferred summarization method</p>
+                
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    <div class="form-group mb-4">
+                        <label for="id_summary_type" class="form-label">Choose Summarization Method</label>
+                        {{ form.summary_type|as_crispy_field }}
+                    </div>
+
+                    <div class="upload-zone mb-4" id="dropZone">
+                        <input type="file" name="file" id="id_file" class="d-none" accept=".pdf">
+                        <div class="text-center">
+                            <i class="fas fa-file-pdf fa-3x text-primary mb-3"></i>
+                            <h5>Drag & Drop your PDF here</h5>
+                            <p class="text-muted">or</p>
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('id_file').click()">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                        </div>
+                        <div id="fileInfo" class="mt-3 d-none">
+                            <p class="text-success mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <span id="fileName"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-magic me-2"></i>Generate Summaries
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('id_file');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Highlight drop zone when file is dragged over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.classList.add('bg-light');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('bg-light');
+    }
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    function handleFiles(files) {
+        if (files[0]) {
+            fileInput.files = files;
+            updateFileInfo(files[0]);
+        }
+    }
+
+    // Handle file selection via input
+    fileInput.addEventListener('change', function() {
+        if (this.files[0]) {
+            updateFileInfo(this.files[0]);
+        }
+    });
+
+    function updateFileInfo(file) {
+        if (file.type !== 'application/pdf') {
+            alert('Please upload a PDF file');
+            fileInput.value = '';
+            return;
+        }
+        fileName.textContent = file.name;
+        fileInfo.classList.remove('d-none');
+    }
+</script>
+{% endblock %}
+
+<div class="card">
+    <div class="card-body p-4">
+        <h2 class="text-center mb-4">
+            <i class="fas fa-cloud-upload-alt text-primary me-2"></i>
+            Upload Image for Summarization
+        </h2>
+        <p class="text-center text-muted mb-4">Upload your image and get a summary</p>
+
+        <form method="post" enctype="multipart/form-data" id="imageUploadForm">
+            {% csrf_token %}
+            <div class="upload-zone mb-4" id="imageDropZone">
+                <input type="file" name="image" id="id_image" class="d-none" accept="image/*">
+                <div class="text-center">
+                    <i class="fas fa-image fa-3x text-primary mb-3"></i>
+                    <h5>Drag & Drop your Image here</h5>
+                    <p class="text-muted">or</p>
+                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementByid('id_image').click()">
+                        <i class="fas fa-folder-open me-2"></i>Browse Files
+                    </button>
+                </div>
+                <div id="imageFileInfo" class="mt-3 d-none">
+                    <p class="text-success mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="imageFileName"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-magic me-2"></i>Generate Summary
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
